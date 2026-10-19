@@ -1,8 +1,37 @@
-// "/api" is proxied to the backend by Vite (see vite.config.js) to avoid CORS
-const API_URL = import.meta.env.VITE_API_URL ?? "/api";
+// In dev, "/api" is proxied to the backend by Vite (see vite.config.js) to avoid CORS
+const API_URL =
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.DEV ? "/api" : "https://fieldops-xbkz.onrender.com");
 
 // ?demo in the page URL uses sample data instead of the backend (?demo=empty, ?demo=error)
 const demo = new URLSearchParams(location.search).get("demo");
+export const isDemo = demo !== null;
+
+function toText(value) {
+  if (Array.isArray(value)) return value.map(toText).join(", ");
+  if (value && typeof value === "object") {
+    return value.message ?? value.msg ?? JSON.stringify(value);
+  }
+  return String(value);
+}
+
+function fieldErrors(errors) {
+  if (!errors) return {};
+  const entries = Array.isArray(errors)
+    ? errors.map((e) => [e.path ?? e.param ?? e.field ?? "", e.msg ?? e.message ?? e])
+    : Object.entries(errors);
+  return Object.fromEntries(entries.map(([key, value]) => [key, toText(value)]));
+}
+
+export function describeError(err, fieldNames) {
+  const fields = {};
+  const other = [];
+  for (const [key, text] of Object.entries(err.fields ?? {})) {
+    if (fieldNames.includes(key)) fields[key] = text;
+    else other.push(key ? `${key}: ${text}` : text);
+  }
+  return { fields, message: [err.message, ...other].join(" · ") };
+}
 
 async function request(path, options = {}) {
   const token = localStorage.getItem("token");
@@ -22,17 +51,21 @@ async function request(path, options = {}) {
   const data = await res.json().catch(() => null);
 
   if (res.status === 401) {
-    throw new Error(
-      token
-        ? "Your token is invalid or has expired - please log in again."
-        : 'No token - please log in (the token must be in localStorage under the "token" key).'
-    );
+    window.dispatchEvent(new Event("session-expired"));
+    throw new Error("Your session has expired - please sign in again.");
   }
   if (!res.ok) {
-    throw new Error(data?.message || data?.error || `Error ${res.status}`);
+    const error = new Error(data?.message || data?.error || `Error ${res.status}`);
+    error.status = res.status;
+    error.fields = fieldErrors(data?.errors);
+    throw error;
   }
   return data;
 }
+
+const listFrom = (data, key) => (Array.isArray(data) ? data : data?.[key] ?? []);
+const byDate = (a, b) => new Date(a.date) - new Date(b.date);
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function normalizeOrder(o, i) {
   const address =
@@ -43,16 +76,13 @@ function normalizeOrder(o, i) {
   return {
     id: o.id ?? o._id ?? i,
     title: o.title || `Order #${i + 1}`,
-    desc: o.desc ?? "",
-    client: o.clientName ?? o.client?.name ?? "",
+    desc: o.description ?? o.desc ?? "",
+    client: o.client_data ?? o.clientData ?? o.clientName ?? "",
     address,
     date: o.deadline ?? o.date,
-    status: o.status,
+    status: o.order_status ?? o.status,
   };
 }
-
-const byDate = (a, b) => new Date(a.date) - new Date(b.date);
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const mockOrders = Array.from({ length: 19 }, (_, i) => {
   const d = new Date();
@@ -79,19 +109,18 @@ const mockOrders = Array.from({ length: 19 }, (_, i) => {
 });
 
 export async function getOrders() {
-  if (demo !== null) {
+  if (isDemo) {
     await wait(600);
     if (demo === "error") throw new Error("Can't connect to the server.");
     return demo === "empty" ? [] : mockOrders.map(normalizeOrder).sort(byDate);
   }
 
   const data = await request("/orders/get");
-  const list = Array.isArray(data) ? data : data?.orders ?? [];
-  return list.map(normalizeOrder).sort(byDate);
+  return listFrom(data, "orders").map(normalizeOrder).sort(byDate);
 }
 
 export async function addOrder(order) {
-  if (demo !== null) {
+  if (isDemo) {
     await wait(300);
     mockOrders.push({ ...order, id: mockOrders.length + 1 });
     return;

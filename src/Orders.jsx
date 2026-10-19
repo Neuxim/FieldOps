@@ -44,7 +44,7 @@ export default function Orders() {
   };
 
   return (
-    <main className="page">
+    <>
       <header className="page-header">
         <h1>Orders</h1>
         {!showForm && (
@@ -62,6 +62,6 @@ export default function Orders() {
         error={error}
         onRetry={reload}
       />
-    </main>
+    </>
   );
 }

@@ -3,9 +3,9 @@ import Button from "./components/Button";
 
 const PAGE_SIZE = 8;
 
-// The backend stores Polish status values (e.g. "niewykonane")
+// The backend returns Polish status values (e.g. "do wykonania")
 const STATUS = {
-  niewykonane: ["To do", "todo"],
+  "do wykonania": ["To do", "todo"],
   todo: ["To do", "todo"],
   in_progress: ["In progress", "progress"],
   wykonane: ["Done", "done"],
@@ -86,8 +86,7 @@ export default function OrdersList({ orders, loading, error, onRetry }) {
                     </div>
                   </td>
                   <td data-label="Client">{o.client || "—"}</td>
-                  <td data-label="Address">{o.address || "—"}</td>
-                  <td data-label="Date">{formatDate(o.date)}</td>
+                  <td data-label="Address">{o.address || "—"}</td>                  <td data-label="Date">{formatDate(o.date)}</td>
                   <td data-label="Status">
                     <span className={`badge ${tone}`}>{label}</span>
                   </td>
