@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Button from "./components/Button";
+import StatusPicker from "./StatusPicker";
 
 const PAGE_SIZE = 8;
 
@@ -7,12 +8,17 @@ const PAGE_SIZE = 8;
 const STATUS = {
   "do wykonania": ["To do", "todo"],
   todo: ["To do", "todo"],
+  "w realizacji": ["In progress", "progress"],
   in_progress: ["In progress", "progress"],
   wykonane: ["Done", "done"],
   done: ["Done", "done"],
   anulowane: ["Cancelled", "cancelled"],
   cancelled: ["Cancelled", "cancelled"],
 };
+
+const STATUS_OPTIONS = ["do wykonania", "w realizacji", "wykonane"].map(
+  (value) => ({ value, label: STATUS[value][0], tone: STATUS[value][1] })
+);
 
 const dateFormat = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
@@ -24,7 +30,15 @@ function formatDate(value) {
   return isNaN(d) ? "—" : dateFormat.format(d);
 }
 
-export default function OrdersList({ orders, loading, error, onRetry }) {
+export default function OrdersList({
+  orders,
+  loading,
+  error,
+  onRetry,
+  onEdit,
+  onDelete,
+  onStatusChange,
+}) {
   const [page, setPage] = useState(1);
 
   const pages = Math.max(1, Math.ceil(orders.length / PAGE_SIZE));
@@ -72,6 +86,7 @@ export default function OrdersList({ orders, loading, error, onRetry }) {
               <th>Address</th>
               <th>Date</th>
               <th>Status</th>
+              <th aria-label="Actions" />
             </tr>
           </thead>
           <tbody>
@@ -88,7 +103,33 @@ export default function OrdersList({ orders, loading, error, onRetry }) {
                   <td data-label="Client">{o.client || "—"}</td>
                   <td data-label="Address">{o.address || "—"}</td>                  <td data-label="Date">{formatDate(o.date)}</td>
                   <td data-label="Status">
-                    <span className={`badge ${tone}`}>{label}</span>
+                    <StatusPicker
+                      value={o.status}
+                      label={label}
+                      tone={tone}
+                      options={STATUS_OPTIONS}
+                      onChange={(status) => onStatusChange(o, status)}
+                    />
+                  </td>
+                  <td data-label="" className="actions">
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Edit order"
+                      aria-label={`Edit ${o.title}`}
+                      onClick={() => onEdit(o)}
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Delete order"
+                      aria-label={`Delete ${o.title}`}
+                      onClick={() => onDelete(o)}
+                    >
+                      🗑️
+                    </button>
                   </td>
                 </tr>
               );

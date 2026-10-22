@@ -131,3 +131,30 @@ export async function addOrder(order) {
     body: JSON.stringify(order),
   });
 }
+
+export async function changeOrder(order) {
+  if (isDemo) {
+    await wait(300);
+    const existing = mockOrders.find((o) => o.id === order.id);
+    Object.assign(existing, order, order.date ? { deadline: order.date } : {});
+    return;
+  }
+
+  return request("/orders/change", {
+    method: "PATCH",
+    body: JSON.stringify(order),
+  });
+}
+
+export async function deleteOrder(order) {
+  if (isDemo) {
+    await wait(300);
+    mockOrders.splice(mockOrders.findIndex((o) => o.id === order.id), 1);
+    return;
+  }
+
+  return request("/orders/remove", {
+    method: "DELETE",
+    body: JSON.stringify({ id: order.id, title: order.title }),
+  });
+}

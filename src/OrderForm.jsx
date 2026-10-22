@@ -1,13 +1,14 @@
 import { useState } from "react";
 import Button from "./components/Button";
-import { addOrder, describeError } from "./api";
+import { addOrder, changeOrder, describeError } from "./api";
 
 // Named after the backend's error keys; sent as description/clientData (see handleSubmit)
 const FIELDS = ["title", "desc", "client", "address", "date"];
 const REQUIRED = ["title", "desc", "client", "address"];
 
-function nowForInput() {
-  const d = new Date();
+function toInputValue(value) {
+  const d = new Date(value ?? Date.now());
+  if (isNaN(d)) return toInputValue();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
 }
@@ -23,13 +24,13 @@ function validate(values) {
   return errors;
 }
 
-export default function OrderForm({ onSaved, onCancel }) {
+export default function OrderForm({ order, onSaved, onCancel }) {
   const [values, setValues] = useState({
-    title: "",
-    desc: "",
-    client: "",
-    address: "",
-    date: nowForInput(),
+    title: order?.title ?? "",
+    desc: order?.desc ?? "",
+    client: order?.client ?? "",
+    address: order?.address ?? "",
+    date: toInputValue(order?.date),
   });
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
@@ -50,13 +51,15 @@ export default function OrderForm({ onSaved, onCancel }) {
     setSaving(true);
     setServerError("");
     try {
-      await addOrder({
+      const data = {
         title: values.title.trim(),
         description: values.desc.trim(),
         clientData: values.client.trim(),
         address: values.address.trim(),
         date: new Date(values.date).toISOString(),
-      });
+      };
+      if (order) await changeOrder({ id: order.id, ...data });
+      else await addOrder(data);
       onSaved();
     } catch (err) {
       const { fields, message } = describeError(err, FIELDS);
@@ -68,8 +71,10 @@ export default function OrderForm({ onSaved, onCancel }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="card form form-narrow">
-      <h2 className="card-title">New order</h2>
+    <form onSubmit={handleSubmit} noValidate className="card form">
+      <h2 id="order-form-title" className="card-title">
+        {order ? "Edit order" : "New order"}
+      </h2>
 
       <div className="field">
         <input
@@ -142,7 +147,6 @@ export default function OrderForm({ onSaved, onCancel }) {
       </Button>
 
       <p className="form-footer">
-        Changed your mind?{" "}
         <Button variant="link" onClick={onCancel}>
           Cancel
         </Button>
