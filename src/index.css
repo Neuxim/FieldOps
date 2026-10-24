@@ -45,7 +45,6 @@ p {
   top: 0;
   z-index: 10;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 24px;
   padding: 14px 24px;
@@ -61,6 +60,125 @@ p {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.tab {
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s, background 0.2s;
+}
+
+.tab:hover,
+.tab.active {
+  color: var(--text);
+  background: var(--input);
+}
+
+.search {
+  display: flex;
+  gap: 12px;
+}
+
+.search select.input {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+td.mono,
+.sticker-code {
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.sticker {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 80mm;
+  max-width: 100%;
+  justify-self: center;
+  padding: 4mm;
+  background: #fff;
+  color: #000;
+  border: 1px dashed #9ca3af;
+  border-radius: 6px;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.sticker img {
+  width: 28mm;
+  height: 28mm;
+  flex: none;
+}
+
+.sticker-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.sticker-text strong {
+  font-size: 15px;
+}
+
+.sticker-brand {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+
+.sticker-code {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+@media print {
+  #root,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .modal-backdrop {
+    position: static;
+    display: block;
+    padding: 0;
+    background: none;
+    backdrop-filter: none;
+    animation: none;
+  }
+
+  .modal {
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    animation: none;
+  }
+
+  .modal .card {
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
 }
 
 .page {

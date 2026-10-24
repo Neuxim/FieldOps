@@ -59,7 +59,7 @@ export default function Orders() {
       list.map((o) => (o.id === order.id ? { ...o, status } : o))
     );
     try {
-      await changeOrder({ id: order.id, status });
+      await changeOrder(order, { status });
     } catch (err) {
       setOrders(previous);
       setStatusError(err.message);

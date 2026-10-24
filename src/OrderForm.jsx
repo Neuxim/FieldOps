@@ -51,15 +51,17 @@ export default function OrderForm({ order, onSaved, onCancel }) {
     setSaving(true);
     setServerError("");
     try {
-      const data = {
-        title: values.title.trim(),
-        description: values.desc.trim(),
-        clientData: values.client.trim(),
-        address: values.address.trim(),
-        date: new Date(values.date).toISOString(),
-      };
-      if (order) await changeOrder({ id: order.id, ...data });
-      else await addOrder(data);
+      const title = values.title.trim();
+      const desc = values.desc.trim();
+      const client = values.client.trim();
+      const address = values.address.trim();
+      const date = new Date(values.date).toISOString();
+
+      if (order) {
+        await changeOrder(order, { title, desc, client, address, date });
+      } else {
+        await addOrder({ title, description: desc, clientData: client, address, date });
+      }
       onSaved();
     } catch (err) {
       const { fields, message } = describeError(err, FIELDS);

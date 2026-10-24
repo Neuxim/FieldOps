@@ -81,6 +81,7 @@ function normalizeOrder(o, i) {
     address,
     date: o.deadline ?? o.date,
     status: o.order_status ?? o.status,
+    deviceId: o.device_id ?? o.deviceId ?? null,
   };
 }
 
@@ -132,17 +133,34 @@ export async function addOrder(order) {
   });
 }
 
-export async function changeOrder(order) {
+export async function changeOrder(order, changes) {
+  const next = { ...order, ...changes };
+
   if (isDemo) {
     await wait(300);
-    const existing = mockOrders.find((o) => o.id === order.id);
-    Object.assign(existing, order, order.date ? { deadline: order.date } : {});
+    Object.assign(mockOrders.find((o) => o.id === order.id), {
+      title: next.title,
+      description: next.desc,
+      clientData: next.client,
+      address: next.address,
+      deadline: next.date,
+      status: next.status,
+    });
     return;
   }
 
   return request("/orders/change", {
     method: "PATCH",
-    body: JSON.stringify(order),
+    body: JSON.stringify({
+      old_title: order.title,
+      title: next.title,
+      description: next.desc,
+      clientData: next.client,
+      address: next.address,
+      date: next.date,
+      status: next.status,
+      deviceId: next.deviceId,
+    }),
   });
 }
 
@@ -156,5 +174,71 @@ export async function deleteOrder(order) {
   return request("/orders/remove", {
     method: "DELETE",
     body: JSON.stringify({ id: order.id, title: order.title }),
+  });
+}
+
+const mockDevices = [
+  ["Heat pump", "Viessmann Vitocal 200-S", "Boiler room", "FO-7K2M9QXA"],
+  ["Gas boiler", "Vaillant ecoTEC plus", "Basement", "VT-ECO-11873"],
+  ["Recuperator", "Komfovent Domekt R 400", "Attic", "FO-P4WZ8D2L"],
+].map(([name, model, location, serialNumber], i) => ({
+  id: i + 1,
+  name,
+  model,
+  location,
+  serialNumber,
+}));
+
+export async function getDevices({ search = "", number = "" } = {}) {
+  if (isDemo) {
+    await wait(300);
+    return mockDevices.filter(
+      (d) =>
+        d.name.toLowerCase().includes(search.toLowerCase()) &&
+        d.serialNumber.toLowerCase().includes(number.toLowerCase())
+    );
+  }
+
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (number) params.set("number", number);
+  const query = params.toString();
+
+  const data = await request(`/devices/get${query ? `?${query}` : ""}`);
+  return listFrom(data, "devices").map((d) => ({
+    id: d.id,
+    name: d.name ?? "",
+    model: d.model ?? "",
+    location: d.location ?? "",
+    serialNumber: d.serialNumber ?? "",
+  }));
+}
+
+export async function addDevice(device) {
+  if (isDemo) {
+    await wait(300);
+    const serialNumber =
+      device.serialNumber ||
+      `FO-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+    mockDevices.push({ ...device, serialNumber, id: mockDevices.length + 1 });
+    return;
+  }
+
+  return request("/devices/add", {
+    method: "POST",
+    body: JSON.stringify(device),
+  });
+}
+
+export async function changeDevice(device) {
+  if (isDemo) {
+    await wait(300);
+    Object.assign(mockDevices.find((d) => d.id === device.id), device);
+    return;
+  }
+
+  return request("/devices/change", {
+    method: "PATCH",
+    body: JSON.stringify(device),
   });
 }
