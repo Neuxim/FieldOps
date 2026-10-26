@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPenToSquare, faTrashCan } from "@fortawesome/free-solid-svg-icons";
 import Button from "./components/Button";
 import StatusPicker from "./StatusPicker";
 
@@ -119,7 +121,7 @@ export default function OrdersList({
                       aria-label={`Edit ${o.title}`}
                       onClick={() => onEdit(o)}
                     >
-                      ✏️
+                      <FontAwesomeIcon icon={faPenToSquare} />
                     </button>
                     <button
                       type="button"
@@ -128,7 +130,7 @@ export default function OrdersList({
                       aria-label={`Delete ${o.title}`}
                       onClick={() => onDelete(o)}
                     >
-                      🗑️
+                      <FontAwesomeIcon icon={faTrashCan} />
                     </button>
                   </td>
                 </tr>

@@ -585,6 +585,7 @@ td.actions {
   border: 0;
   border-radius: var(--radius);
   background: none;
+  color: var(--muted);
   font-size: 16px;
   cursor: pointer;
   transition: background 0.15s;
@@ -592,6 +593,7 @@ td.actions {
 
 .icon-btn:hover {
   background: var(--input-focus);
+  color: var(--text);
 }
 
 .modal-backdrop {

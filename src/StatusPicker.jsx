@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCaretDown } from "@fortawesome/free-solid-svg-icons";
 
 export default function StatusPicker({ value, label, tone, options, onChange }) {
   const [position, setPosition] = useState(null);
@@ -65,9 +67,7 @@ export default function StatusPicker({ value, label, tone, options, onChange }) 
         onClick={toggle}
       >
         {label}
-        <span className="caret" aria-hidden="true">
-          ▾
-        </span>
+        <FontAwesomeIcon icon={faCaretDown} className="caret" />
       </button>
 
       {open &&

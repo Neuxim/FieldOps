@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPenToSquare, faTag } from "@fortawesome/free-solid-svg-icons";
 import Button from "./components/Button";
 import Modal from "./components/Modal";
 import DeviceForm from "./DeviceForm";
@@ -140,7 +142,7 @@ export default function Devices() {
                       aria-label={`Edit ${d.name}`}
                       onClick={() => setEditing(d)}
                     >
-                      ✏️
+                      <FontAwesomeIcon icon={faPenToSquare} />
                     </button>
                     <button
                       type="button"
@@ -149,7 +151,7 @@ export default function Devices() {
                       aria-label={`Print sticker for ${d.name}`}
                       onClick={() => setSticker(d)}
                     >
-                      🏷️
+                      <FontAwesomeIcon icon={faTag} />
                     </button>
                   </td>
                 </tr>
