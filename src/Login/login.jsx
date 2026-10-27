@@ -1,5 +1,6 @@
 import { useState } from "react";
 import styles from "./login.module.css";
+import { PROFILE_KEY, storeProfile } from "../api";
 
 const API_BASE = import.meta.env.DEV ? "/api" : "https://fieldops-xbkz.onrender.com";
 
@@ -78,6 +79,9 @@ function Login({ onLogin, onShowRegister }) {
       }
 
       localStorage.setItem("token", token);
+      // Name and email for the profile screen (the server has no endpoint to read them later)
+      localStorage.removeItem(PROFILE_KEY);
+      storeProfile(data.user ?? data);
       const expiresAt = getExpiryTimestamp(data);
       if (expiresAt) localStorage.setItem("tokenExpiresAt", String(expiresAt));
       else localStorage.removeItem("tokenExpiresAt");

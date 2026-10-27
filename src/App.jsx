@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Dashboard from "./Dashboard";
 import Login from "./Login/login";
 import Register from "./Login/register";
-import { isDemo } from "./api";
+import { PROFILE_KEY, isDemo } from "./api";
 
 const TOKEN_KEY = "token";
 const EXPIRY_KEY = "tokenExpiresAt";
@@ -31,6 +31,7 @@ function readValidToken() {
   if (expiresAt && expiresAt <= Date.now()) {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(EXPIRY_KEY);
+    localStorage.removeItem(PROFILE_KEY);
     return null;
   }
   return token;
@@ -43,6 +44,7 @@ function App() {
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(EXPIRY_KEY);
+    localStorage.removeItem(PROFILE_KEY);
     setToken(null);
     setScreen("login");
   }, []);
