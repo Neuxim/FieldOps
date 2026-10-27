@@ -1166,6 +1166,20 @@ button.row-link:focus-visible {
   margin-bottom: 8px;
 }
 
+.report-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.report-edit {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .report-text {
   white-space: pre-wrap;
 }

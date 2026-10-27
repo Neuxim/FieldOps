@@ -23,6 +23,7 @@ export default function DeviceForm({ device, onSaved, onCancel }) {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [version, setVersion] = useState(device?.version ?? null); // the server version this edit is based on
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -45,13 +46,23 @@ export default function DeviceForm({ device, onSaved, onCancel }) {
         location: values.location.trim(),
       };
       if (device) {
-        await changeDevice({ id: device.id, ...data });
+        await changeDevice({ id: device.id, version, ...data });
       } else {
         const serialNumber = values.serialNumber.trim();
         await addDevice(serialNumber ? { ...data, serialNumber } : data);
       }
       onSaved();
     } catch (err) {
+      // Changed elsewhere: keep what was typed, show what the server has now, and let the user save again
+      if (err.status === 409 && err.current) {
+        const { name, model, location } = err.current;
+        setVersion(err.current.version);
+        setServerError(
+          `Someone else changed this device in the meantime (now: ${name} · ${model} · ${location}). ` +
+            "Save again to replace it with your version, or cancel to keep theirs.",
+        );
+        return;
+      }
       const { fields, message } = describeError(err, FIELDS);
       setErrors(fields);
       setServerError(message);

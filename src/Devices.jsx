@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPenToSquare, faTag } from "@fortawesome/free-solid-svg-icons";
+import { faPenToSquare, faTag, faTrash } from "@fortawesome/free-solid-svg-icons";
 import Button from "./components/Button";
 import Modal from "./components/Modal";
+import DeleteDialog from "./DeleteDialog";
 import DeviceForm from "./DeviceForm";
 import StickerDialog from "./StickerDialog";
-import { getDevices } from "./api";
+import { deleteDevice, getDevices } from "./api";
 
 export default function Devices() {
   const [devices, setDevices] = useState([]);
@@ -15,6 +16,7 @@ export default function Devices() {
   const [searchBy, setSearchBy] = useState("search");
   const [editing, setEditing] = useState(null);
   const [sticker, setSticker] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -47,7 +49,8 @@ export default function Devices() {
     setReloadKey((k) => k + 1);
   };
 
-  const handleSaved = () => {
+  // Reload also after cancel: the device may have been changed elsewhere while it was open
+  const closeEditor = () => {
     setEditing(null);
     reload();
   };
@@ -153,6 +156,15 @@ export default function Devices() {
                     >
                       <FontAwesomeIcon icon={faTag} />
                     </button>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Delete device"
+                      aria-label={`Delete ${d.name}`}
+                      onClick={() => setDeleting(d)}
+                    >
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -162,17 +174,33 @@ export default function Devices() {
       )}
 
       {editing && (
-        <Modal onClose={() => setEditing(null)} labelledBy="device-form-title">
+        <Modal onClose={closeEditor} labelledBy="device-form-title">
           <DeviceForm
             device={editing === "new" ? null : editing}
-            onSaved={handleSaved}
-            onCancel={() => setEditing(null)}
+            onSaved={closeEditor}
+            onCancel={closeEditor}
           />
         </Modal>
       )}
 
       {sticker && (
         <StickerDialog device={sticker} onClose={() => setSticker(null)} />
+      )}
+
+      {deleting && (
+        <DeleteDialog
+          title="Delete device?"
+          text={`"${deleting.name}" (${deleting.serialNumber}) will be permanently deleted. Orders linked to it will no longer have a device.`}
+          onDelete={() => deleteDevice(deleting)}
+          onDeleted={() => {
+            setDeleting(null);
+            reload();
+          }}
+          onCancel={() => {
+            setDeleting(null);
+            reload(); // a failed delete may mean the device changed elsewhere
+          }}
+        />
       )}
     </>
   );

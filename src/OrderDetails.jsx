@@ -163,7 +163,10 @@ export default function OrderDetails({ id, onBack, onEdit, onReport, onDelete })
       </section>
 
       {order.report ? (
-        <ReportView report={order.report} />
+        <ReportView
+          report={order.report}
+          onChanged={(saved) => (saved ? setOrder((o) => ({ ...o, report: saved })) : reload())}
+        />
       ) : hasReport(order) ? (
         <div className="note">
           <strong>Report filed</strong>

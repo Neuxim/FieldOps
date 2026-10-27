@@ -1,9 +1,9 @@
 import { useState } from "react";
 import Button from "./components/Button";
 import Modal from "./components/Modal";
-import { deleteOrder } from "./api";
 
-export default function DeleteDialog({ order, onDeleted, onCancel }) {
+// Confirmation before a permanent delete. onDelete does the request; onDeleted runs after it succeeded.
+export default function DeleteDialog({ title, text, onDelete, onDeleted, onCancel }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
@@ -11,10 +11,14 @@ export default function DeleteDialog({ order, onDeleted, onCancel }) {
     setDeleting(true);
     setError("");
     try {
-      await deleteOrder(order);
+      await onDelete();
       onDeleted();
     } catch (err) {
-      setError(err.message);
+      setError(
+        err.status === 409
+          ? "Someone else changed it in the meantime, so it wasn't deleted. Close this, check the latest version and try again."
+          : err.message,
+      );
       setDeleting(false);
     }
   };
@@ -23,11 +27,9 @@ export default function DeleteDialog({ order, onDeleted, onCancel }) {
     <Modal onClose={onCancel} labelledBy="delete-title">
       <div className="card form">
         <h2 id="delete-title" className="card-title">
-          Delete order?
+          {title}
         </h2>
-        <p className="dialog-text">
-          "{order.title}" will be permanently deleted.
-        </p>
+        <p className="dialog-text">{text}</p>
         {error && <p className="error">{error}</p>}
         <div className="dialog-actions">
           <Button variant="secondary" onClick={onCancel}>

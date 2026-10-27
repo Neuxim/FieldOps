@@ -6,7 +6,7 @@ import OrderDetails from "./OrderDetails";
 import OrderForm from "./OrderForm";
 import OrdersList from "./OrdersList";
 import ReportForm from "./ReportForm";
-import { changeOrder, getOrders } from "./api";
+import { changeOrder, deleteOrder, getOrders } from "./api";
 import { deleteDraft, listDrafts } from "./reportDrafts";
 
 export default function Orders() {
@@ -81,7 +81,12 @@ export default function Orders() {
       reload(); // picks up the new version of the order
     } catch (err) {
       setOrders(previous);
-      setStatusError(err.message);
+      if (err.status === 409) {
+        setStatusError("Someone else changed this order in the meantime. The list now shows the latest version - try again.");
+        reload();
+      } else {
+        setStatusError(err.message);
+      }
     }
   };
 
@@ -91,7 +96,13 @@ export default function Orders() {
   };
 
   const deleteDialog = deleting && (
-    <DeleteDialog order={deleting} onDeleted={handleDeleted} onCancel={() => setDeleting(null)} />
+    <DeleteDialog
+      title="Delete order?"
+      text={`"${deleting.title}" will be permanently deleted.`}
+      onDelete={() => deleteOrder(deleting)}
+      onDeleted={handleDeleted}
+      onCancel={() => setDeleting(null)}
+    />
   );
 
   if (view.name === "new") {

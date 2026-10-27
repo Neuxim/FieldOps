@@ -9,19 +9,24 @@ const API_URL =
 const ENDPOINTS = {
   orders: "/orders/get",
   addOrder: "/orders/add", // accepts deviceId
-  changeOrder: "/orders/change", // PATCH; the order is identified by id and old_title
-  removeOrder: "/orders/remove",
+  // Changes and removals send the `version` the app last saw. If the server has another one it
+  // changes nothing and answers 409 with { conflict: true, current } (the item as it is now).
+  changeOrder: "/orders/change", // PATCH { id, version, ... }
+  removeOrder: "/orders/remove", // DELETE { id, version }
   devices: "/devices/get", // ?search=name  or  ?number=serial
   addDevice: "/devices/add",
-  changeDevice: "/devices/change", // PATCH
+  changeDevice: "/devices/change", // PATCH { id, version, ... }
+  removeDevice: "/devices/remove", // DELETE { id, version }; orders linked to it lose the link
   generateReport: "/raports/generateRaport", // POST; also sets the order to done
+  editReport: "/raports/edit", // PATCH { orderId, version, documentation, photo_ids? }
   reports: "/raports/get", // reports of the logged-in user
-  // Raw image as the body (Content-Type: image/png); the response has file.url
+  // Raw image as the body (Content-Type: image/png); the response has file.url (and file.thumbnailUrl for photos)
   uploadSignature: "/files/signature",
   uploadPhoto: "/files/photo",
-  // NOT CONFIRMED with the backend: where an uploaded file can be read when only its id is known
   signatureFile: (id) => `/files/signature/${id}`,
   photoFile: (id) => `/files/photo/${id}`,
+  // Small preview for lists of photos; the full photo is loaded only when it is enlarged
+  photoThumb: (id) => `/files/photo/${id}/thumb`,
   // PATCH { name, email, oldPassword?, newPassword? }. There is no endpoint that reads the profile.
   editProfile: "/auth/edit",
 };
@@ -124,6 +129,7 @@ function normalizeDevice(d, i) {
     model: d.model ?? "",
     location: d.location ?? "",
     serialNumber: String(d.serialNumber ?? d.serial_number ?? d.number ?? d.code ?? ""),
+    version: d.version ?? null,
   };
 }
 
@@ -137,6 +143,15 @@ const imageUrl = (v) => {
 // Paths starting with "/" are read with the login token (see FileImage).
 const fileUrl = (value, toPath) =>
   imageUrl(value) ?? (typeof value === "string" && value ? toPath(value) : null);
+
+// Photo as { id, src, thumb }: a file name (id) gets the server thumbnail, an image URL is its own preview
+function photoUrls(value) {
+  const src = fileUrl(value, ENDPOINTS.photoFile);
+  if (!src) return null;
+  const id = typeof value === "string" && !imageUrl(value) ? value : value?.id ?? null;
+  const thumb = imageUrl(value?.thumbnailUrl) ?? (id ? ENDPOINTS.photoThumb(id) : src);
+  return { id, src, thumb };
+}
 
 function normalizeReport(r) {
   if (!r || typeof r !== "object") return null;
@@ -155,7 +170,7 @@ function normalizeReport(r) {
       r.order?._id ??
       (typeof r.order === "string" || typeof r.order === "number" ? r.order : null),
     description: r.documentation ?? r.description ?? r.desc ?? "",
-    name: r.name ?? r.signerName ?? r.signer_name ?? "",
+    name: r.name ?? r.client_name ?? r.clientName ?? r.signerName ?? r.signer_name ?? "",
     location,
     photos: [
       ...(Array.isArray(r.photos) ? r.photos : []),
@@ -166,13 +181,14 @@ function normalizeReport(r) {
       r.photo_url,
       r.photoUrl,
     ]
-      .map((p) => fileUrl(p, ENDPOINTS.photoFile))
+      .map(photoUrls)
       .filter(Boolean),
     signature:
       imageUrl(r.signature ?? r.signature_url ?? r.signatureUrl) ??
       fileUrl(r.signature_id ?? r.signatureId, ENDPOINTS.signatureFile),
     signatureId: r.signature_id ?? r.signatureId ?? null,
     date: r.date ?? r.createdAt ?? r.created_at ?? null,
+    version: r.version ?? null,
   };
 }
 
@@ -217,10 +233,10 @@ const sampleSignature =
   );
 
 const mockDevices = [
-  { id: 1, name: "Heat pump", serialNumber: "FO-A1B2C3", model: "Vaillant aroTHERM plus 7", location: "Boiler room, ul. Lipowa 4" },
-  { id: 2, name: "Air conditioner", serialNumber: "SN-884-120", model: "Daikin FTXM35", location: "Office 2.14" },
-  { id: 3, name: "Gas boiler", serialNumber: "SN-552-901", model: "Viessmann Vitodens 100", location: "ul. Kwiatowa 12" },
-  { id: 4, name: "Recuperator", serialNumber: "FO-Z9Y8X7", model: "Zehnder ComfoAir Q350", location: "ul. Słoneczna 7" },
+  { id: 1, name: "Heat pump", serialNumber: "FO-A1B2C3", model: "Vaillant aroTHERM plus 7", location: "Boiler room, ul. Lipowa 4", version: 1 },
+  { id: 2, name: "Air conditioner", serialNumber: "SN-884-120", model: "Daikin FTXM35", location: "Office 2.14", version: 1 },
+  { id: 3, name: "Gas boiler", serialNumber: "SN-552-901", model: "Viessmann Vitodens 100", location: "ul. Kwiatowa 12", version: 1 },
+  { id: 4, name: "Recuperator", serialNumber: "FO-Z9Y8X7", model: "Zehnder ComfoAir Q350", location: "ul. Słoneczna 7", version: 1 },
 ];
 
 const mockOrders = Array.from({ length: 19 }, (_, i) => {
@@ -259,6 +275,7 @@ const mockOrders = Array.from({ length: 19 }, (_, i) => {
             photos: [sampleImage("Photo 1", 260), sampleImage("Photo 2", 200)],
             signature: sampleSignature,
             createdAt: new Date(d.getTime() + 3 * 3600e3).toISOString(),
+            version: 1,
           }
         : null,
   };
@@ -375,7 +392,7 @@ export async function changeOrder(order, changes) {
       method: "PATCH",
       body: JSON.stringify({
         id: order.id,
-        old_title: order.title,
+        version: order.version,
         title: next.title,
         description: next.desc,
         clientData: next.client,
@@ -388,24 +405,42 @@ export async function changeOrder(order, changes) {
     const saved = data?.order ?? data;
     return saved && typeof saved === "object" && (saved.id ?? saved._id) ? normalizeOrder(saved, 0) : null;
   } catch (err) {
-    if (err.status === 409 && err.data?.current) {
-      err.current = normalizeOrder(err.data.current, 0);
-    }
-    throw err;
+    throw withCurrent(err, normalizeOrder);
   }
 }
+
+// 409 "changed elsewhere": the server sends the item as it is now; keep it normalized on err.current
+function withCurrent(err, normalize) {
+  if (err.status === 409 && err.data?.current) {
+    err.current = normalize(err.data.current, 0);
+  }
+  return err;
+}
+
+const demoConflict = (what, current) => {
+  const error = new Error(`${what} was changed elsewhere in the meantime.`);
+  error.status = 409;
+  error.current = current;
+  return error;
+};
 
 export async function deleteOrder(order) {
   if (isDemo) {
     await wait(300);
-    mockOrders.splice(mockOrders.indexOf(findMock(order.id)), 1);
+    const o = findMock(order.id);
+    if (order.version != null && order.version !== o.version) throw demoConflict("The order", normalizeOrder(o, 0));
+    mockOrders.splice(mockOrders.indexOf(o), 1);
     return;
   }
 
-  return request(ENDPOINTS.removeOrder, {
-    method: "DELETE",
-    body: JSON.stringify({ id: order.id, title: order.title }),
-  });
+  try {
+    return await request(ENDPOINTS.removeOrder, {
+      method: "DELETE",
+      body: JSON.stringify({ id: order.id, version: order.version }),
+    });
+  } catch (err) {
+    throw withCurrent(err, normalizeOrder);
+  }
 }
 
 /* ---------- Devices ---------- */
@@ -462,7 +497,7 @@ export async function addDevice({ name, model, location, serialNumber }) {
       error.fields = { serialNumber: "This serial number is already registered" };
       throw error;
     }
-    mockDevices.push({ id: mockDevices.length + 1, name, model, location, serialNumber: serial });
+    mockDevices.push({ id: Math.max(0, ...mockDevices.map((d) => d.id)) + 1, name, model, location, serialNumber: serial, version: 1 });
     return;
   }
 
@@ -472,18 +507,53 @@ export async function addDevice({ name, model, location, serialNumber }) {
   });
 }
 
-export async function changeDevice({ id, name, model, location }) {
+const findMockDevice = (id, version) => {
+  const d = mockDevices.find((x) => String(x.id) === String(id));
+  if (!d) throw new Error("Device not found.");
+  if (version != null && version !== d.version) throw demoConflict("The device", normalizeDevice(d, 0));
+  return d;
+};
+
+// `version` is the one the device had when it was loaded; throws 409 with `current` when it moved on.
+// Returns the saved device.
+export async function changeDevice({ id, version, name, model, location }) {
   if (isDemo) {
     await wait(300);
-    const d = mockDevices.find((x) => String(x.id) === String(id));
-    if (d) Object.assign(d, { name, model, location });
+    const d = findMockDevice(id, version);
+    Object.assign(d, { name, model, location, version: d.version + 1 });
+    return normalizeDevice(d, 0);
+  }
+
+  try {
+    const data = await request(ENDPOINTS.changeDevice, {
+      method: "PATCH",
+      body: JSON.stringify({ id, version, name, model, location }),
+    });
+    return data?.device ? normalizeDevice(data.device, 0) : null;
+  } catch (err) {
+    throw withCurrent(err, normalizeDevice);
+  }
+}
+
+export async function deleteDevice({ id, version }) {
+  if (isDemo) {
+    await wait(300);
+    const d = findMockDevice(id, version);
+    mockDevices.splice(mockDevices.indexOf(d), 1);
+    mockOrders.forEach((o) => {
+      if (String(o.deviceId) === String(id)) o.deviceId = "";
+    });
     return;
   }
 
-  return request(ENDPOINTS.changeDevice, {
-    method: "PATCH",
-    body: JSON.stringify({ id, name, model, location }),
-  });
+  try {
+    return await request(ENDPOINTS.removeDevice, {
+      method: "DELETE",
+      body: JSON.stringify({ id, version }),
+    });
+  } catch (err) {
+    throw withCurrent(err, normalizeDevice);
+  }
 }
 
 /* ---------- Reports ---------- */
@@ -524,6 +594,7 @@ export async function saveReport(order, { description, name, location, photos, s
       photos: await Promise.all(photos.map(blobToDataUrl)),
       signature: await blobToDataUrl(signature),
       createdAt: new Date().toISOString(),
+      version: 1,
     };
     o.status = "done"; // like the real endpoint: generating the report finishes the order
     o.version += 1;
@@ -563,6 +634,38 @@ export async function saveReport(order, { description, name, location, photos, s
       throw error;
     }
     throw err;
+  }
+}
+
+// `report` is the version the edit is based on; `photos` are the report photos to keep.
+// Throws 409 with `current` (the report as it is now) when it was changed elsewhere. Returns the saved report.
+export async function editReport(report, { description, photos }) {
+  if (isDemo) {
+    await wait(300);
+    const r = findMock(report.orderId).report;
+    if (report.version != null && report.version !== r.version) throw demoConflict("The report", normalizeReport(r));
+    const kept = new Set(photos.map((p) => p.src));
+    Object.assign(r, { documentation: description, photos: r.photos.filter((src) => kept.has(src)), version: r.version + 1 });
+    return normalizeReport(r);
+  }
+
+  // photo_ids replaces the whole list, so it is sent only when every photo has a file id
+  const photoIds = photos.map((p) => p.id);
+  try {
+    const data = await request(ENDPOINTS.editReport, {
+      method: "PATCH",
+      body: JSON.stringify({
+        orderId: report.orderId,
+        version: report.version,
+        documentation: description,
+        ...(photoIds.every(Boolean) ? { photo_ids: photoIds } : {}),
+      }),
+    });
+    const saved = normalizeReport(data?.raport ?? data?.report);
+    if (saved) lastReports.set(String(saved.orderId), saved);
+    return saved;
+  } catch (err) {
+    throw withCurrent(err, normalizeReport);
   }
 }
 
